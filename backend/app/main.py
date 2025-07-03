@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, Header
 from fastapi.responses import JSONResponse
-import logging
+from .analyzer import analyze_commit
 
 app = FastAPI()
 
@@ -11,20 +11,19 @@ def home():
 @app.post("/webhook")
 async def webhook_handler(request: Request, content_type: str = Header(None)):
     try:
-        if content_type == "application/json":
-            payload = await request.json()
-        else:
+        if content_type != "application/json":
             return JSONResponse(status_code=400, content={"error": "Unsupported Content-Type"})
+
+        payload = await request.json()
 
         repo = payload.get("repository", {}).get("full_name", "Unknown repo")
         pusher = payload.get("pusher", {}).get("name", "Unknown user")
-        commit_msg = payload.get("head_commit", {}).get("message", "No commit message")
+        commit_msg = payload.get("head_commit", {}).get("message", "No message")
 
-        print(f"📦 Repo: {repo}")
-        print(f"👤 Pushed by: {pusher}")
-        print(f"📝 Message: {commit_msg}")
+        result = analyze_commit(repo, pusher, commit_msg)
+        print("🧠 Analysis Result:", result)
 
-        return JSONResponse(content={"status": "received", "repo": repo})
+        return JSONResponse(content={"status": "received", "analysis": result})
 
     except Exception as e:
         print(f"❌ Error processing webhook: {e}")
